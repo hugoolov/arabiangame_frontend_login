@@ -8,20 +8,69 @@ function App() {
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
 
-  const handleLogin = () => {
-    console.log('Brukernavn:', username)
-    console.log('Passord:', password)
-    alert(`Logget inn som ${username}`)
+const handleLogin = async () => {
+  try {
+    const response = await fetch('http://localhost:8080/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Logged in:', data);
+      alert(`Logget inn som ${data.username}`);
+      // Store userId in localStorage or state for later use
+      localStorage.setItem('userId', data.userId);
+      localStorage.setItem('username', data.username);
+    } else {
+      const error = await response.text();
+      alert(`Login feilet: ${error}`);
+    }
+  } catch (error) {
+    alert('Noe gikk galt ved innlogging');
+  }
+};
+
+const handleRegister = async () => {
+  try {
+    const response = await fetch('http://localhost:8080/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: newUsername, password: newPassword })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      alert(`Bruker ${data.username} registrert!`);
+      setShowRegister(false);
+      setNewUsername('');
+      setNewPassword('');
+    } else {
+      const error = await response.text();
+      alert(`Registrering feilet: ${error}`);
+    }
+  } catch (error) {
+    alert('Noe gikk galt ved registrering');
+  }
+};
+
+const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+
+const checkUsername = async (username: string) => {
+  if (username.length < 3) {
+    setUsernameAvailable(null);
+    return;
   }
 
-  const handleRegister = () => {
-    console.log('Ny bruker:', newUsername)
-    console.log('Nytt passord:', newPassword)
-    alert(`Bruker ${newUsername} registrert!`)
-    setShowRegister(false)
-    setNewUsername('')
-    setNewPassword('')
+  try {
+    const response = await fetch(`http://localhost:8080/api/auth/check-username?username=${username}`);
+    const available = await response.json();
+    setUsernameAvailable(available);
+  } catch (error) {
+    console.error('Error checking username:', error);
   }
+};
 
   return (
     <>
@@ -51,8 +100,13 @@ function App() {
               type="text"
               placeholder="Nytt brukernavn"
               value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
+              onChange={(e) => {
+                setNewUsername(e.target.value);
+                checkUsername(e.target.value);
+              }}
             />
+            {usernameAvailable === false && <p style={{color: 'red'}}>Username taken</p>}
+            {usernameAvailable === true && <p style={{color: 'green'}}>Username available</p>}
             <input
               type="password"
               placeholder="Nytt passord"
